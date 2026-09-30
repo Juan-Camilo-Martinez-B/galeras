@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import Volcan from '@/components/Volcan';
 import { PATRONES } from '@/lib/data';
+import Link from 'next/link';
 
 // Esta portada también es SSG: no usa datos dinámicos.
 export default function Home() {
@@ -48,7 +48,7 @@ export default function Home() {
           </Link>
         ))}
       </section>
-      <p className="nota">Para ver las diferencias reales ejecuta <code>npm run build &amp;&amp; npm start</code>. En <code>npm run dev</code> Next.js renderiza todo bajo demanda.</p>
+      
     </>
   );
 }
