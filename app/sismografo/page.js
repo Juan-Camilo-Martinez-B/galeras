@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import Cabecera from '@/components/Cabecera';
 
 const N = 200; // ventana: 4 s a 50 Hz
 
@@ -20,6 +21,7 @@ export default function Sismografo() {
     const url = URL.createObjectURL(new Blob([CODIGO], { type: 'text/javascript' }));
     worker.current = new Worker(url);
     worker.current.onmessage = (e) => setM(e.data);
+    dibujar(); // rejilla visible desde el primer frame, antes del primer fetch
     return () => { worker.current.terminate(); URL.revokeObjectURL(url); };
   }, []);
 
@@ -38,23 +40,55 @@ export default function Sismografo() {
 
   function dibujar() {
     const c = canvas.current, g = c.getContext('2d');
-    g.clearRect(0, 0, c.width, c.height);
-    g.strokeStyle = 'rgba(18,36,29,.12)';
-    for (let x = 0; x < c.width; x += 50) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, c.height); g.stroke(); }
-    g.strokeStyle = '#d6432b'; g.lineWidth = 2; g.beginPath();
-    buf.current.forEach((v, i) => { const x = (i / (N - 1)) * c.width, y = c.height / 2 - v * 30; i ? g.lineTo(x, y) : g.moveTo(x, y); });
-    g.stroke();
+    const W = c.width, H = c.height;
+    g.clearRect(0, 0, W, H);
+
+    // rejilla verde tipo monitor
+    g.lineWidth = 1;
+    g.strokeStyle = 'rgba(46,204,113,.10)';
+    for (let x = 0; x < W; x += 50) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    for (let y = 0; y < H; y += 26) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    g.strokeStyle = 'rgba(46,204,113,.35)'; g.setLineDash([6, 6]);
+    g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke(); g.setLineDash([]);
+
+    // franjas de umbral (verde = calma, rojo = sacudida)
+    g.fillStyle = 'rgba(255,59,48,.06)';
+    g.fillRect(0, 0, W, H / 2 - 75); g.fillRect(0, H / 2 + 75, W, H / 2 - 75);
+
+    if (!buf.current.length) return;
+    const trazo = () => { g.beginPath(); buf.current.forEach((v, i) => { const x = (i / (N - 1)) * W, y = H / 2 - v * 30; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); };
+
+    // halo + trazo principal: rojo lava con brillo
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    g.strokeStyle = 'rgba(255,59,48,.25)'; g.lineWidth = 7; trazo();
+    g.shadowColor = '#ff3b30'; g.shadowBlur = 12;
+    g.strokeStyle = '#ff5b4d'; g.lineWidth = 2; trazo();
+    g.shadowBlur = 0;
+
+    // punto de lectura actual
+    const ult = buf.current[buf.current.length - 1];
+    g.fillStyle = '#ffd166'; g.beginPath(); g.arc(W - 2, H / 2 - ult * 30, 4, 0, Math.PI * 2); g.fill();
   }
 
-  const K = [['RMS', m.rms.toFixed(2)], ['Pico', m.pico.toFixed(2)], ['Frecuencia dominante', `${m.hz.toFixed(2)} Hz`], ['Latencia fetch', `${ping} ms`]];
+  const K = [
+    ['RMS', m.rms.toFixed(2), 'var(--verde)'],
+    ['Pico', m.pico.toFixed(2), 'var(--lava)'],
+    ['Frecuencia dominante', `${m.hz.toFixed(2)} Hz`, 'var(--lima)'],
+    ['Latencia fetch', `${ping} ms`, 'var(--carmesi)'],
+  ];
   return (
     <>
       <aside className="sello p-csr"><b>CSR</b><span>El servidor solo envió un HTML casi vacío; esto se dibuja en tu navegador</span></aside>
-      <h1 className="titulo">Sismógrafo interactivo</h1>
-      <p className="lead">El navegador pide <code>/api/sismos</code> cada segundo y pinta la señal en un canvas. El análisis espectral corre en un <strong>Web Worker</strong>: el hilo principal queda libre para la interfaz.</p>
-      <canvas ref={canvas} width={1000} height={260} className="canvas" />
-      <div className="grid">{K.map(([k, v]) => <div key={k} className="sensor listo"><h3>{k}</h3><strong>{v}</strong></div>)}</div>
-      <button className="btn" onClick={() => setPausa(!pausa)}>{pausa ? 'Reanudar lectura' : 'Pausar lectura'}</button>
+      <Cabecera titulo="Sismógrafo interactivo" color="var(--carmesi)">
+        El navegador pide <code>/api/sismos</code> cada segundo y pinta la señal en un canvas. El análisis espectral corre en un <strong>Web Worker</strong>: el hilo principal queda libre para la interfaz.
+      </Cabecera>
+      <div className="monitor">
+        <span className={`vivo ${pausa ? 'pausado' : ''}`}>{pausa ? 'Pausado' : 'En vivo'}</span>
+        <span className="estacion">Estación GAL-01 · 50 Hz</span>
+        <canvas ref={canvas} width={1000} height={260} className="canvas" />
+      </div>
+      <div className="grid">{K.map(([k, v, c]) => <div key={k} className="sensor listo" style={{ '--c': c }}><h3>{k}</h3><strong>{v}</strong></div>)}</div>
+      <button className={`btn ${pausa ? 'verde' : ''}`} onClick={() => setPausa(!pausa)}>{pausa ? '▶ Reanudar lectura' : '❚❚ Pausar lectura'}</button>
     </>
   );
 }

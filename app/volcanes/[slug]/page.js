@@ -1,5 +1,7 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Sello from '@/components/Sello';
+import Volcan from '@/components/Volcan';
 import { VOLCANES } from '@/lib/data';
 
 export const dynamicParams = false; // solo existen las rutas generadas en el build
@@ -16,9 +18,18 @@ export default async function Ficha({ params }) {
   return (
     <>
       <Sello patron="SSG" cuando={`/volcanes/${v.slug} compilada a las`} />
-      <h1 className="titulo" style={{ color: v.color }}>{v.nombre}</h1>
-      <p className="lead">{v.desc}</p>
-      <dl className="ficha">{datos.map(([k, val]) => <div key={k}><dt>{k}</dt><dd>{val}</dd></div>)}</dl>
+      <section className="ficha-hero">
+        <div>
+          <Link href="/volcanes" className="volver">← Volver al catálogo</Link>
+          <div><span className="nivel">Nivel {v.nivel}</span></div>
+          <h1 className="titulo" style={{ color: v.color }}>{v.nombre}</h1>
+          <p className="lead">{v.desc}</p>
+        </div>
+        <Volcan size={300} color={v.color} titulo={`Ilustración del volcán ${v.nombre}`} />
+      </section>
+      <dl className="ficha" style={{ '--c': v.color }}>
+        {datos.map(([k, val], i) => <div key={k} style={{ animationDelay: `${i * 70}ms` }}><dt>{k}</dt><dd>{val}</dd></div>)}
+      </dl>
     </>
   );
 }
